@@ -37,6 +37,7 @@ not exist.
 | ------ | ----------------- | ----------- | ------------------------------------------- |
 | POST   | `/auth/register`  | public      | Create an org + owner, return a JWT         |
 | POST   | `/auth/login`     | public      | Exchange credentials for a JWT              |
+| POST   | `/auth/members`   | owner only  | Invite a member into the caller's org       |
 | POST   | `/projects`       | any member  | Create a project in the caller's org        |
 | GET    | `/projects`       | any member  | List the caller's org's projects            |
 | GET    | `/projects/:id`   | any member  | Fetch one project (404 if not in your org)  |
