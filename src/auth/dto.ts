@@ -24,3 +24,13 @@ export class LoginDto {
   @MaxLength(128)
   password!: string;
 }
+
+export class InviteMemberDto {
+  @IsEmail()
+  email!: string;
+
+  @IsString()
+  @MinLength(8)
+  @MaxLength(128)
+  password!: string;
+}

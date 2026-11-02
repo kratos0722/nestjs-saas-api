@@ -10,13 +10,19 @@ import {
   USER_REPOSITORY,
   UserRepository,
 } from '../common/repositories';
-import { LoginDto, RegisterDto } from './dto';
+import { InviteMemberDto, LoginDto, RegisterDto } from './dto';
 import { JwtPayload } from './jwt.strategy';
 
 export interface AuthResult {
   accessToken: string;
   orgId: string;
   userId: string;
+}
+
+export interface MemberSummary {
+  userId: string;
+  email: string;
+  role: 'member';
 }
 
 @Injectable()
@@ -49,6 +55,26 @@ export class AuthService {
     await this.users.create(user);
 
     return this.issue(user);
+  }
+
+  /** Owner-only: add a member to an existing org. The orgId comes from the
+   * authenticated owner, never from the request body, so a member can only ever
+   * be created inside the caller's own tenant. */
+  async inviteMember(orgId: string, dto: InviteMemberDto): Promise<MemberSummary> {
+    const existing = await this.users.findByEmail(dto.email);
+    if (existing) {
+      throw new ConflictException('a user with this email already exists');
+    }
+    const member: User = {
+      id: uuid(),
+      orgId,
+      email: dto.email,
+      passwordHash: await bcrypt.hash(dto.password, 10),
+      role: 'member',
+      createdAt: new Date().toISOString(),
+    };
+    await this.users.create(member);
+    return { userId: member.id, email: member.email, role: 'member' };
   }
 
   async login(dto: LoginDto): Promise<AuthResult> {

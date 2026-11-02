@@ -32,6 +32,11 @@ describe('nestjs-saas-api (e2e)', () => {
     return res.body.accessToken as string;
   }
 
+  async function login(email: string, password: string): Promise<string> {
+    const res = await http.post('/auth/login').send({ email, password }).expect(200);
+    return res.body.accessToken as string;
+  }
+
   it('rejects an invalid registration body with 400', async () => {
     await http
       .post('/auth/register')
@@ -107,5 +112,76 @@ describe('nestjs-saas-api (e2e)', () => {
 
     await http.delete(`/projects/${id}`).set('Authorization', `Bearer ${token}`).expect(204);
     await http.get(`/projects/${id}`).set('Authorization', `Bearer ${token}`).expect(404);
+  });
+
+  describe('team member invitations', () => {
+    it('lets an owner invite a member who can work but not delete', async () => {
+      const ownerToken = await register('Wayne Ent', 'owner@wayne.test');
+      const memberEmail = 'member@wayne.test';
+
+      const invited = await http
+        .post('/auth/members')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ email: memberEmail, password: 'member-secret' })
+        .expect(201);
+      expect(invited.body.role).toBe('member');
+
+      const memberToken = await login(memberEmail, 'member-secret');
+
+      // The member can create a project in the shared org...
+      const created = await http
+        .post('/projects')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .send({ name: 'member project' })
+        .expect(201);
+      const projectId = created.body.id as string;
+
+      // ...the owner sees it (same tenant)...
+      const ownerList = await http
+        .get('/projects')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+      expect(ownerList.body.map((p: { id: string }) => p.id)).toContain(projectId);
+
+      // ...but the member may not delete it (owner-only).
+      await http
+        .delete(`/projects/${projectId}`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(403);
+    });
+
+    it('forbids a member from inviting other members', async () => {
+      const ownerToken = await register('Stark Ind', 'owner@stark.test');
+      await http
+        .post('/auth/members')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ email: 'm@stark.test', password: 'member-secret' })
+        .expect(201);
+      const memberToken = await login('m@stark.test', 'member-secret');
+
+      await http
+        .post('/auth/members')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .send({ email: 'm2@stark.test', password: 'member-secret' })
+        .expect(403);
+    });
+
+    it('rejects a duplicate email with 409 and requires auth', async () => {
+      const ownerToken = await register('Oscorp', 'owner@oscorp.test');
+      await http
+        .post('/auth/members')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ email: 'dup@oscorp.test', password: 'member-secret' })
+        .expect(201);
+      await http
+        .post('/auth/members')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ email: 'dup@oscorp.test', password: 'member-secret' })
+        .expect(409);
+      await http
+        .post('/auth/members')
+        .send({ email: 'x@oscorp.test', password: 'member-secret' })
+        .expect(401);
+    });
   });
 });

@@ -1,7 +1,19 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 
-import { AuthResult, AuthService } from './auth.service';
-import { LoginDto, RegisterDto } from './dto';
+import { AuthenticatedUser } from '../common/models';
+import { AuthResult, AuthService, MemberSummary } from './auth.service';
+import { CurrentUser } from './current-user.decorator';
+import { InviteMemberDto, LoginDto, RegisterDto } from './dto';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { Roles } from './roles.decorator';
+import { RolesGuard } from './roles.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -16,5 +28,16 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: LoginDto): Promise<AuthResult> {
     return this.auth.login(dto);
+  }
+
+  @Post('members')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('owner')
+  @HttpCode(HttpStatus.CREATED)
+  inviteMember(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: InviteMemberDto,
+  ): Promise<MemberSummary> {
+    return this.auth.inviteMember(user.orgId, dto);
   }
 }
