@@ -1,0 +1,11 @@
+# Local run. The shipped repositories are in-memory, so no database is required
+# to start the API; this file documents the intended production topology and is
+# ready for the Postgres adapter described in the README.
+services:
+  api:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-secret-change-me}
